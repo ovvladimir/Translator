@@ -1,11 +1,14 @@
+# https://www.deepl.com/translator
+# https://habr.com/ru/post/517972/
+
 import warnings
 warnings.filterwarnings("ignore")
 try:
     import os
     from textblob import TextBlob as detect
-    # import translators as ts
-    import apis as ts
-    from tkinter import Tk, Label, Text, Button, PhotoImage, END, W, E, S, RIGHT, Scrollbar
+    import translators as ts
+    # import apis as ts
+    from tkinter import Tk, Frame, Label, Text, Scrollbar, Button, PhotoImage, END, W, E
 except ImportError:
     pass
 
@@ -53,33 +56,36 @@ root.title('Translate')
 root.iconphoto(True, PhotoImage(file=path))
 
 lab0 = Label(root, font='arial 11 bold', fg='white', bg='blue')
-lab0.grid(row=0, column=0, columnspan=2, sticky=W + E)
+lab0.grid(row=0, column=0, columnspan=2, sticky=W + E, pady=2)
 
+f1 = Frame(root)
+f1.grid(row=1, column=0)
 text1 = Text(
-    root, width=50, height=12, font='arial 12', wrap="word")
-text1.grid(row=1, column=0)
-scroll1 = Scrollbar(text1, command=text1.yview)
+    f1, font='arial 12', wrap="word", width=50, height=12, padx=10, pady=10)
+text1.pack(side='left')
+scroll1 = Scrollbar(f1, command=text1.yview)
 scroll1.pack(side='right', fill='y')
 text1['yscroll'] = scroll1.set
+text1.pack_propagate(False)
+lab1 = Label(text1, fg='blue', bg='white')
+lab1.pack(side='right', anchor='s')
 
+f2 = Frame(root)
+f2.grid(row=1, column=1)
 text2 = Text(
-    root, width=50, height=12, font='arial 12', bg='gray95', wrap='word')
-text2.grid(row=1, column=1)
-scroll2 = Scrollbar(text2)
+    f2, font='arial 12', wrap="word", width=50, height=12, bg='gray95', padx=10, pady=10)
+text2.pack(side='left')
+scroll2 = Scrollbar(f2)
 scroll2.pack(side='right', fill='y')
 scroll2.config(command=text2.yview)
 text2.config(yscrollcommand=scroll2.set)
+text2.pack_propagate(False)
+lab2 = Label(text2, fg='blue', bg='gray95')
+lab2.pack(side='right', anchor='s')
 
 bt1 = Button(root, text='Translate window', font='arial 12', fg='blue', command=window)
 bt1.grid(row=2, column=0, sticky=W + E)
 bt2 = Button(root, text='Translate clipboard', font='arial 12', fg='blue', command=clipboard)
 bt2.grid(row=2, column=1, sticky=W + E)
-
-text1.pack_propagate(False)
-text2.pack_propagate(False)
-lab1 = Label(text1, fg='blue', bg='white')
-lab1.pack(side=RIGHT, anchor=S)
-lab2 = Label(text2, fg='blue', bg='gray95')
-lab2.pack(side=RIGHT, anchor=S)
 
 root.mainloop()
