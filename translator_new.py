@@ -1,13 +1,10 @@
-# https://www.deepl.com/translator
-# https://habr.com/ru/post/517972/
-
 import warnings
 warnings.filterwarnings("ignore")
 try:
     import os
     from textblob import TextBlob as detect
-    import translators as ts
-    # import apis as ts
+    # import translators as ts
+    import apis as ts
     from tkinter import Tk, Frame, Label, Text, Scrollbar, Button, PhotoImage, END, W, E
 except ImportError:
     pass
