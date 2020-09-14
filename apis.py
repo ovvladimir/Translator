@@ -3,7 +3,7 @@ import sys
 import time
 import random
 from functools import wraps
-from typing import Union
+from typing import Union, Callable
 from urllib.parse import quote, urlencode, urlparse
 import requests
 
@@ -19,12 +19,12 @@ class Tse:
             t1 = time.time()
             r = func(*args, **kwargs)
             t2 = time.time()
+            logger.success(
+                'CostTime(fn: {}): {}s'.format(
+                    func.__name__, round(
+                        (t2 - t1), 1)), style='braces')
             return r
         return wrapper
-
-    @staticmethod
-    def if_none(v1, v2):
-        return v1 if v1 else v2
 
     @staticmethod
     def get_headers(host_url, if_use_api=False,
@@ -33,14 +33,16 @@ class Tse:
         host_headers = {
             'Referer' if if_use_referer else 'Host': host_url,
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/55.0.2883.87 Safari/537.36"}
+                          "Chrome/55.0.2883.87 Safari/537.36"
+        }
         api_headers = {
             'Origin': host_url.split(url_path)[0] if url_path else host_url,
             'Referer': host_url,
             'X-Requested-With': 'XMLHttpRequest',
             'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/55.0.2883.87 Safari/537.36"}
+                          "Chrome/55.0.2883.87 Safari/537.36"
+        }
         if not if_ajax:
             api_headers.pop('X-Requested-With')
             api_headers.update({'Content-Type': 'text/plain'})
@@ -67,6 +69,7 @@ class Tse:
                     to_language, list(
                         language_map.keys())))
         elif from_language != output_auto and to_language not in language_map[from_language]:
+            logger.exception('language_map:', language_map)
             raise TranslatorError(
                 'Unsupported translation: from [{0}] to [{1}]!'.format(
                     from_language, to_language))
@@ -134,7 +137,6 @@ class Google(Tse):
             if int_v < 2**16:
                 ints.append(int_v)
             else:
-                # unicode, emoji
                 ints.append(int((int_v - 2**16) / 2**10 + 55296))
                 ints.append(int((int_v - 2**16) % 2**10 + 56320))
         return ints
@@ -146,23 +148,23 @@ class Google(Tse):
         g = 0
 
         while g < size:
-            ll = ints[g]
-            if ll < 2**7:  # 128(ascii)
-                e.append(ll)
+            l = ints[g]
+            if l < 2**7:
+                e.append(l)
             else:
-                if ll < 2**11:  # 2048
-                    e.append(ll >> 6 | 192)
+                if l < 2**11:
+                    e.append(l >> 6 | 192)
                 else:
-                    if (ll & 64512) == 55296 and g + \
+                    if (l & 64512) == 55296 and g + \
                             1 < size and ints[g + 1] & 64512 == 56320:
                         g += 1
-                        ll = 65536 + ((ll & 1023) << 10) + (ints[g] & 1023)
+                        l = 65536 + ((l & 1023) << 10) + (ints[g] & 1023)
                         e.append(l >> 18 | 240)
                         e.append(l >> 12 & 63 | 128)
                     else:
-                        e.append(ll >> 12 | 224)
-                    e.append(ll >> 6 & 63 | 128)
-                e.append(ll & 63 | 128)
+                        e.append(l >> 12 | 224)
+                    e.append(l >> 6 & 63 | 128)
+                e.append(l & 63 | 128)
             g += 1
 
         b = tkk if tkk != '0' else ''
@@ -181,21 +183,21 @@ class Google(Tse):
         return '{}.{}'.format(a, a ^ b)
 
     def get_language_map(self, host_html):
-        lang_list_str = re.findall(
-            r"source_code_name:\[(.*?)\],", host_html)[0]
+        lang_list_str = re.findall("source_code_name:\[(.*?)\],", host_html)[0]
         lang_list_str = (
             '[' + lang_list_str + ']').replace('code', '"code"').replace('name', '"name"')
         lang_list = [x['code']
                      for x in eval(lang_list_str) if x['code'] != 'auto']
         return {}.fromkeys(lang_list, lang_list)
 
-    @Tse.time_stat
     def google_api(self, query_text: str, from_language: str = 'auto',
                    to_language: str = 'en', **kwargs) -> Union[str, list]:
+        """
+        https://translate.google.com, https://translate.google.cn.
+        """
 
-        self.host_url = self.cn_host_url if kwargs.get(
-            'if_use_cn_host',
-            None) or self.request_server_region_info.get('countryCode') == 'CN' else self.en_host_url
+        self.host_url = self.cn_host_url if kwargs.get('if_use_cn_host', None) \
+            or self.request_server_region_info.get('countryCode') == 'CN' else self.en_host_url
         self.host_headers = self.get_headers(
             self.cn_host_url, if_use_api=False)
         is_detail_result = kwargs.get('is_detail_result', False)
@@ -216,12 +218,9 @@ class Google(Tse):
 
             tkk = re.findall("tkk:'(.*?)'", host_html)[0]
             tk = self.acquire(query_text, tkk)
-            self.api_url = (
-                self.host_url +
-                '/translate_a/single?client={0}&sl={1}&tl={2}&hl=zh-CN&dt=at&dt=bd&dt=ex' +
-                '&dt=ld&dt=md&dt=qca&dt=rw&dt=rm&dt=ss&dt=t&ie=UTF-8&oe=UTF-8&source=bh&ssel=0&tsel=0&kc=1&tk=' +
-                str(tk) + '&q=' + quote(query_text)).format(
-                'webapp', from_language, to_language)
+            self.api_url = (self.host_url + '/translate_a/single?client={0}&sl={1}&tl={2}&hl=zh-CN&dt=at&dt=bd&dt=ex'
+                            + '&dt=ld&dt=md&dt=qca&dt=rw&dt=rm&dt=ss&dt=t&ie=UTF-8&oe=UTF-8&source=bh&ssel=0&tsel=0&kc=1&tk='
+                            + str(tk) + '&q=' + quote(query_text)).format('webapp', from_language, to_language)
             r = ss.get(
                 self.api_url,
                 headers=self.host_headers,
@@ -236,5 +235,5 @@ class Google(Tse):
 
 REQUEST_SERVER_REGION_INFO = TranslatorSeverRegion().request_server_region_info
 
-google_ = Google()
-google = google_.google_api
+_google = Google()
+google = _google.google_api
