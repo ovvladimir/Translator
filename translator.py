@@ -1,21 +1,21 @@
 # https://www.deepl.com/translator
 
-import warnings
-warnings.filterwarnings("ignore")
-try:
-    import os
-    from textblob import TextBlob as detect
-    import translators as ts
-    # import apis as ts
-    from tkinter import Tk, Frame, Label, Text, Scrollbar, Button, PhotoImage, END, W, E
-except ImportError:
-    pass
+import translators as ts
+from tkinter import Tk, Frame, Label, Text, Scrollbar, Button, PhotoImage, END, W, E
+import os
+
+import sys
+if not sys.warnoptions:
+    import warnings
+    warnings.simplefilter("ignore")
+from textblob import TextBlob
+# import pycld2 as cld2
 
 icon = os.path.dirname(os.path.abspath(__file__))
 path = os.path.join(icon, 'icon.png')
 
 
-def close(event):
+def close(_):
     root.destroy()
 
 
@@ -24,6 +24,8 @@ def clipboard():
         clip_text = root.clipboard_get()
     except BaseException:
         clip_text = "Buffer empty"
+    if len(clip_text) < 4:
+        clip_text = "Enter text more than two characters"
     text1.delete(1.0, END)
     text1.insert(END, clip_text)
     translate(clip_text)
@@ -39,8 +41,11 @@ def window():
 
 
 def translate(get_text):
-    languages_text = detect(get_text)
+    languages_text = TextBlob(get_text)
     indetect = languages_text.detect_language()
+    # _, _, details = cld2.detect(get_text)
+    # indetect = details[0][1]
+
     if indetect != 'ru':
         langout = 'ru'
     else:
@@ -49,8 +54,16 @@ def translate(get_text):
     lab1['text'] = indetect
     lab2['text'] = langout
 
-    # output = ts.google(get_text, to_language=langout, if_use_cn_host=True)
-    output = ts.bing(get_text, to_language=langout, if_use_cn_host=False)
+    if len(get_text) > 20:
+        # translators
+        output = ts.google(get_text, to_language=langout, if_use_cn_host=True)
+        # output = ts.bing(get_text, to_language=langout, if_use_cn_host=False)
+    else:
+        try:
+            # textblob
+            output = languages_text.translate(from_lang=indetect, to=langout)
+        except BaseException:
+            output = languages_text
     text2.delete(1.0, END)
     text2.insert(END, output)
 
@@ -59,7 +72,7 @@ root = Tk()
 root.title('Translate')
 root.iconphoto(True, PhotoImage(file=path))
 
-lab0 = Label(root, font='arial 11 bold', fg='white', bg='blue')
+lab0 = Label(root, font='"times new roman" 14 bold', fg='white', bg='blue')
 lab0.grid(row=0, column=0, columnspan=2, sticky=W + E, pady=2)
 
 f1 = Frame(root)
